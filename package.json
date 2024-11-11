@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+  "prisma:generate": "prisma generate --schema=src/prisma/schema.prisma",
+  "prisma:push": "prisma db push --schema=src/prisma/schema.prisma",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

@@ -10,6 +10,12 @@ COPY package*.json ./
 # Install dependencies with --legacy-peer-deps
 RUN npm install --legacy-peer-deps
 
+# Generate Prisma client with schema path specified
+RUN npx prisma generate --schema=src/prisma/schema.prisma
+
+# Push the Prisma schema to the database
+RUN npx prisma db push --schema=src/prisma/schema.prisma
+
 # Copy the rest of your application
 COPY . .
 
