@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = "mongodb+srv://ssssssaa143:UYnydmYfSnbo4146@cluster0.q8k2p.mongodb.net/Finance-Tracker?retryWrites=true&w=majority" 
+}
+
+model Transaction {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId  // Use @db.ObjectId for MongoDB IDs
+  category  String
+  amount    Float
+  type      String
+  createdAt DateTime @default(now())
+  Category  Category @relation(fields: [category], references: [name])
+}
+
+model Category {
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
+  name         String        @unique
+  type         String
+  transactions Transaction[]
+}
