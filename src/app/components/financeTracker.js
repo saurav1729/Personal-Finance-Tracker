@@ -124,7 +124,7 @@ export default function FinanceTracker() {
   ]
 
   return (
-    <Card className="w-full max-w-6xl bg-white/10 backdrop-blur-md border-white/20">
+    <Card className="w-full mt-[40rem] xl:mt-[0rem] max-w-6xl bg-white/10 backdrop-blur-md border-white/20">
       <CardHeader>
         <CardTitle className="text-3xl font-bold text-center text-white">Finance Tracker</CardTitle>
       </CardHeader>
