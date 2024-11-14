@@ -4,21 +4,36 @@ generator client {
 
 datasource db {
   provider = "mongodb"
-  url      = "mongodb+srv://ssssssaa143:UYnydmYfSnbo4146@cluster0.q8k2p.mongodb.net/Finance-Tracker?retryWrites=true&w=majority" 
+  url      = "mongodb+srv://ssssssaa143:UYnydmYfSnbo4146@cluster0.q8k2p.mongodb.net/Finance-Tracker?retryWrites=true&w=majority"
 }
 
 model Transaction {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId  // Use @db.ObjectId for MongoDB IDs
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
   category  String
   amount    Float
   type      String
   createdAt DateTime @default(now())
-  Category  Category @relation(fields: [category], references: [name])
+  Category  Category @relation(fields: [categoryId], references: [id])
+  categoryId String  @db.ObjectId
+
+  @@index([userId])
+  @@index([categoryId])
 }
 
 model Category {
   id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  name         String        @unique
+  name         String
   type         String
+  userId       String
   transactions Transaction[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  clerkId   String   @unique
+  createdAt DateTime @default(now())
 }
