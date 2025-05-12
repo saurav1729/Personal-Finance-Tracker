@@ -149,13 +149,13 @@ export default function FinanceTracker() {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <Card className="w-full max-w-4xl bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="w-auto mt-[-6rem] max-w-4xl bg-white/10 backdrop-blur-md border-white/20">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold text-center text-white">Finance Tracker</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center text-white">Finance Tracker</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="amount" className="text-white">Amount</Label>
               <Input
                 id="amount"
@@ -213,8 +213,8 @@ export default function FinanceTracker() {
               </Button>
             </div>
             <div>
-              <h3 className="text-lg font-semibold mb-2 text-white">Recent Transactions</h3>
-              <ul className="space-y-2 max-h-40 overflow-y-auto">
+              <h3 className="text-sm font-semibold mb-2 text-white">Recent Transactions</h3>
+              <ul className="space-y-2 max-h-20 overflow-y-auto">
                 {filteredTransactions.slice(0, 10).map((transaction) => (
                   <li key={transaction.id} className="flex justify-between items-center bg-white/10 p-2 rounded">
                     <span className="flex items-center text-white">
@@ -236,13 +236,13 @@ export default function FinanceTracker() {
               </Link>
             </div>
             <div className="pt-4 border-t border-white/20 flex justify-between items-center">
-              <span className="text-lg font-semibold text-white">Balance:</span>
-              <span className={`text-lg font-bold ${balance >= 0 ? 'text-green-300' : 'text-red-300'}`}>
+              <span className="text-sm font-semibold text-white">Balance:</span>
+              <span className={`text-sm font-bold ${balance >= 0 ? 'text-green-300' : 'text-red-300'}`}>
                 ${balance.toFixed(2)}
               </span>
             </div>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold text-white">Financial Overview</h3>
               <Select onValueChange={(value) => setSelectedPeriod(value)}>
@@ -257,7 +257,7 @@ export default function FinanceTracker() {
                 </SelectContent>
               </Select>
             </div>
-            <ResponsiveContainer width="100%" height={250}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chartData}>
                 <XAxis dataKey="name" stroke="#ffffff" />
                 <YAxis stroke="#ffffff" />
