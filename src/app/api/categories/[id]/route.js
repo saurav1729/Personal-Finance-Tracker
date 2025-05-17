@@ -1,5 +1,5 @@
 // app/api/categories/[id]/route.js
-import dbConnect from '@/lib/mongoose';
+import dbConnect from '@/app/lib/db';
 import Category from '@/app/models/Category';
 import Transaction from '@/app/models/Transaction';
 import { NextResponse } from 'next/server';
