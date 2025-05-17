@@ -1,7 +1,7 @@
 // app/api/categories/[id]/route.js
 import dbConnect from '@/lib/mongoose';
-import Category from '@/models/Category';
-import Transaction from '@/models/Transaction';
+import Category from '@/app/models/Category';
+import Transaction from '@/app/models/Transaction';
 import { NextResponse } from 'next/server';
 
 export async function DELETE(request, { params }) {
