@@ -8,9 +8,9 @@ import { IndianRupee } from "lucide-react";
 export default function OverviewTab(props) {
   const { totalIncome, totalExpense, balance, filteredTransactions } = props;
   const barChartData = [
-    { name: "Income", amount: totalIncome, fill: "#10b981" },
-    { name: "Expense", amount: totalExpense, fill: "#ef4444" },
-    { name: "Balance", amount: balance, fill: "#3b82f6" },
+    { name: "Income", amount: totalIncome, fill: "url(#colorIncome)" },
+    { name: "Expense", amount: totalExpense, fill: "url(#colorExpense)" },
+    { name: "Balance", amount: Math.max(0, balance), fill: "url(#colorBalance)" },
   ]
 
   const expensesByCategory = {}
@@ -43,7 +43,7 @@ export default function OverviewTab(props) {
     return null;
   };
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658", "#8dd1e1"]
+  const COLORS = ["#6366f1", "#8b5cf6", "#d946ef", "#06b6d4", "#14b8a6", "#3b82f6", "#f43f5e", "#f59e0b"]
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -51,8 +51,7 @@ export default function OverviewTab(props) {
       <IncomeExpenseChart barChartData = {barChartData}/>
 
 
-      {/* Pie Chart */}
-      <Card className="bg-white/10 backdrop-blur-none border-white/20 shadow-lg">
+      <Card className="bg-gradient-to-br from-[#0a0a0f]/90 to-[#12121e]/90 backdrop-blur-3xl border-white/[0.05] shadow-[0_0_80px_rgba(0,0,0,0.5)] rounded-3xl">
         <CardHeader>
           <CardTitle className="text-lg font-medium text-white">Expense Breakdown</CardTitle>
         </CardHeader>
@@ -64,11 +63,14 @@ export default function OverviewTab(props) {
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                outerRadius={80}
+                innerRadius={65}
+                outerRadius={90}
+                paddingAngle={4}
+                cornerRadius={6}
                 fill="#8884d8"
                 dataKey="value"
-                className="border-none"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                className="stroke-transparent outline-none"
+                label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
               >
                 {pieChartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

@@ -1,139 +1,176 @@
 "use client"
 
-import { Wallet, Calendar, TrendingUp, Download, AlertCircle } from "lucide-react"
+import { Wallet, Calendar, Download, TrendingUp, TrendingDown, Activity, Hash, BarChart2 } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { IndianRupee } from "lucide-react"
+import InsightsPanel from "./util/insights-panel"
+import IncomeExpenseChart from "./IncomeExpenseChart"
 
-
+// Compute how many days are in the selected period — used for avg/day
+function getPeriodDays(selectedPeriod) {
+  const now = new Date();
+  if (selectedPeriod === "day") return 1;
+  if (selectedPeriod === "week") return 7;
+  if (selectedPeriod === "month") return now.getDate(); // days elapsed this month
+  if (selectedPeriod === "year") {
+    const start = new Date(now.getFullYear(), 0, 1);
+    return Math.ceil((now - start) / 86400000) + 1;
+  }
+  // "all" — find earliest transaction date span
+  return null;
+}
 
 export default function DashboardCards(props) {
   const {
-    balance,
-    totalIncome,
-    totalExpense,
-    savingsRate,
-    selectedPeriod,
-    setSelectedPeriod,
-    handleExportData,
-    insights,
-  } = props;
+    balance, totalIncome, totalExpense, savingsRate,
+    selectedPeriod, setSelectedPeriod,
+    handleExportData, barChartData,
+    filteredTransactions = [],
+  } = props
+
+  const isPositive = balance >= 0
+
+  // ── Live stats from filteredTransactions ───────────────────────────────────
+  const txCount = filteredTransactions.length;
+  const periodDays = getPeriodDays(selectedPeriod);
+  const avgPerDay = periodDays && periodDays > 0 && totalExpense > 0
+    ? (totalExpense / periodDays).toFixed(0)
+    : null;
+
+  const periodLabel = {
+    day: "Today",
+    week: "This Week",
+    month: "This Month",
+    year: "This Year",
+    all: "All Time",
+  }[selectedPeriod] || "Period";
+
   return (
-    <div className=" grid grid-cols-1 md:grid-cols-3 gap-6  mb-6">
-      {/* Balance Card */}
-      <Card className="relative overflow-hidden bg-gradient-to-br from-[#1a1f2b] via-[#2c3347] to-[#1e293b] text-white border border-[#ffffff20] shadow-xl">
-        {/* Platinum card texture/pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-full h-20 bg-gradient-to-r from-blue-400/20 to-purple-500/20"></div>
-          <div className="absolute top-10 right-0 w-32 h-32 rounded-full bg-gradient-to-br from-blue-500/10 to-transparent"></div>
-          <div className="absolute bottom-0 left-0 w-full h-20 bg-gradient-to-r from-blue-400/10 to-purple-500/10"></div>
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMyMDIwMjAiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0aDR2MWgtNHYtMXptMC0yaDF2NGgtMXYtNHptMi0yaDF2MWgtMXYtMXptLTIgMmgtMXYxaDF2LTF6bS0yLTJoMXYxaC0xdi0xem0yLTJoMXYxaC0xdi0xem0tMi0yaDF2MWgtMXYtMXptLTItMmgxdjFoLTF2LTF6bS0yIDBoMXYxaC0xdi0xem0tMi0yaDF2MWgtMXYtMXptMi0yaDF2MWgtMXYtMXptLTItMmgxdjFoLTF2LTF6bTQtMmgxdjFoLTF2LTF6bTItMmgxdjFoLTF2LTF6bTIgMGgxdjFoLTF2LTF6bTIgMGgxdjFoLTF2LTF6bTIgMGgxdjFoLTF2LTF6bTIgMGgxdjFoLTF2LTF6bTIgMGgxdjFoLTF2LTF6bTIgMGgxdjFoLTF2LTF6bTIgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6bTAgMmgxdjFoLTF2LTF6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30"></div>
-        </div>
+    <div className="flex flex-col gap-5 w-full">
 
-        {/* Decorative card elements */}
-        <div className="absolute top-3 right-3 w-12 h-8 rounded-md border border-[#ffffff30] opacity-50"></div>
-        <div className="absolute bottom-4 left-4 w-10 h-6 rounded-sm bg-gradient-to-r from-yellow-400/30 to-yellow-600/30"></div>
+      {/* ── Row 1: 3 cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 w-full">
 
-        {/* Horizontal lines like credit card */}
-        <div className="absolute top-1/3 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-blue-400/30 to-transparent"></div>
-        <div className="absolute top-2/3 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-blue-400/20 to-transparent"></div>
+        {/* Balance Card */}
+        <Card className="relative overflow-hidden bg-[#0d0d14] text-white border border-white/[0.05] shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-3xl">
+          {/* Subtle ambient glow — softer than before */}
+          <div className={`absolute inset-0 pointer-events-none ${isPositive
+            ? "bg-[radial-gradient(ellipse_at_top_left,rgba(52,211,153,0.06)_0%,transparent_60%)]"
+            : "bg-[radial-gradient(ellipse_at_top_left,rgba(248,113,113,0.06)_0%,transparent_60%)]"
+            }`} />
+          {/* Decorative chip */}
+          <div className="absolute top-5 right-5 w-9 h-6 rounded border border-white/[0.08] opacity-50" />
 
-        <CardHeader className="pb-2 relative z-10 pt-6">
-          <CardTitle className="text-xl font-medium flex items-center">
-            <div className="bg-gradient-to-r from-gray-700 to-gray-800 p-1.5 rounded-full mr-2 shadow-lg">
-              <Wallet className="w-4 h-4 text-white" />
+          <CardHeader className="pb-2 relative z-10 pt-6">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-lg bg-white/[0.05] flex items-center justify-center border border-white/[0.08]">
+                <Wallet className="w-3 h-3 text-zinc-500" />
+              </div>
+              <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-medium">Current Balance</span>
             </div>
-            <span className="text-white">Current Balance</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="relative z-10 pb-6">
-          <div className="text-4xl font-bold text-white mt-2 mb-6">
-            <span className="flex start-0 items-center">
-              <IndianRupee className="inline" /> {balance.toFixed(2)}
-            </span>
+          </CardHeader>
 
+          <CardContent className="relative z-10 pb-6">
+            <div className={`text-[36px] font-bold tracking-tight mt-1 mb-5 flex items-center gap-1 ${isPositive ? "text-zinc-100" : "text-red-400"
+              }`}>
+              <IndianRupee className="w-6 h-6 opacity-70" />
+              {Math.abs(balance).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {!isPositive && <span className="text-[14px] text-red-400/70 ml-1 font-normal">deficit</span>}
+            </div>
 
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-[#ffffff10] p-3 rounded-lg border border-[#ffffff15]">
-              <div className="text-gray-300 text-sm mb-1">Income</div>
-              <div className="font-semibold text-white">
-                <span className="flex start-0 items-center ">
-                  <IndianRupee className="inline h-4 w-4" />  {totalIncome.toFixed(2)}
-                </span>
+            {/* 3 stat tiles */}
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: "Income", value: totalIncome, clr: "text-emerald-400", icon: TrendingUp },
+                { label: "Expenses", value: totalExpense, clr: "text-red-400", icon: TrendingDown },
+                { label: "Savings", value: null, clr: savingsRate > 20 ? "text-emerald-400" : "text-amber-400", icon: Activity },
+              ].map(({ label, value, clr, icon: Icon }) => (
+                <div key={label}
+                  className="bg-white/[0.03] p-2.5 rounded-xl border border-white/[0.05] hover:bg-white/[0.05] transition-colors group">
+                  <div className="flex items-center gap-1 mb-1.5">
+                    <Icon className={`w-3 h-3 ${clr} opacity-60`} />
+                    <span className="text-[9px] text-zinc-600 uppercase tracking-wider">{label}</span>
+                  </div>
+                  <div className={`font-semibold text-[12px] ${clr} flex items-center gap-0.5`}>
+                    {value !== null
+                      ? <><IndianRupee className="w-2.5 h-2.5" />{value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</>
+                      : <>{savingsRate.toFixed(0)}%</>
+                    }
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
+        {/* Period Selector Card */}
+        <Card className="bg-[#0d0d14] border border-white/[0.05] shadow-[0_0_40px_rgba(0,0,0,0.3)] rounded-3xl text-white">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-lg bg-white/[0.05] flex items-center justify-center border border-white/[0.08]">
+                <Calendar className="w-3 h-3 text-zinc-500" />
+              </div>
+              <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-medium">Time Period</span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="bg-white/[0.03] border-white/[0.07] text-zinc-300 rounded-xl h-9 text-sm focus:ring-1 focus:ring-indigo-500/30 focus:border-indigo-500/30">
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#13131f] border-white/[0.08] text-zinc-300 rounded-xl shadow-2xl">
+                {[["day", "Today"], ["week", "This Week"], ["month", "This Month"], ["year", "This Year"], ["all", "All Time"]].map(([v, l]) => (
+                  <SelectItem key={v} value={v} className="focus:bg-white/[0.08] rounded-lg text-sm">{l}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* ✅ Live stats — computed from filteredTransactions */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.05]">
+                <div className="flex items-center gap-1 mb-1">
+                  <Hash className="w-3 h-3 text-zinc-600" />
+                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Transactions</p>
+                </div>
+                <p className="text-[15px] font-bold text-zinc-200">
+                  {txCount > 0 ? txCount : <span className="text-zinc-600 text-sm font-normal">None</span>}
+                </p>
+                <p className="text-[9px] text-zinc-700 mt-0.5">{periodLabel}</p>
+              </div>
+
+              <div className="bg-white/[0.03] rounded-xl p-3 border border-white/[0.05]">
+                <div className="flex items-center gap-1 mb-1">
+                  <BarChart2 className="w-3 h-3 text-zinc-600" />
+                  <p className="text-[9px] text-zinc-600 uppercase tracking-wider">Avg / day</p>
+                </div>
+                <p className="text-[15px] font-bold text-zinc-200 flex items-center gap-0.5">
+                  {avgPerDay
+                    ? <><IndianRupee className="w-3 h-3 text-zinc-500" />{Number(avgPerDay).toLocaleString("en-IN")}</>
+                    : <span className="text-zinc-600 text-sm font-normal">—</span>
+                  }
+                </p>
+                <p className="text-[9px] text-zinc-700 mt-0.5">expenses only</p>
               </div>
             </div>
-            <div className="bg-[#ffffff10] p-3 rounded-lg border border-[#ffffff15]">
-              <div className="text-gray-300 text-sm mb-1">Expenses</div>
-              <div className="font-semibold text-white">
-                <span className="flex start-0 items-center ">
-                  <IndianRupee className="inline h-4 w-4" />   {totalExpense.toFixed(2)}
-                </span>
 
-              </div>
-            </div>
-            <div className="bg-[#ffffff10] p-3 rounded-lg border border-[#ffffff15]">
-              <div className="text-gray-300 text-sm mb-1">Savings Rate</div>
-              <div className="font-semibold text-white">{savingsRate.toFixed(0)}%</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <Button variant="outline" onClick={handleExportData}
+              className="w-full bg-white/[0.03] border-white/[0.07] text-zinc-400 hover:bg-white/[0.07] hover:text-zinc-200 rounded-xl h-9 text-[13px] transition-all">
+              <Download className="w-3.5 h-3.5 mr-2 opacity-60" />
+              Export to Excel
+            </Button>
+          </CardContent>
+        </Card>
 
-      {/* Period Selector and Export */}
-      <Card className="bg-white/10 border-white/20 shadow-lg">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-medium text-white flex items-center">
-            <Calendar className="w-5 h-5 mr-2" />
-            Time Period
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="bg-white/20 border-white/30 text-white">
-              <SelectValue placeholder="Select period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="day">Today</SelectItem>
-              <SelectItem value="week">This Week</SelectItem>
-              <SelectItem value="month">This Month</SelectItem>
-              <SelectItem value="year">This Year</SelectItem>
-              <SelectItem value="all">All Time</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            className="w-full mt-4 bg-white/20 border-white/30 text-white hover:bg-white/30"
-            onClick={handleExportData}
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export Data
-          </Button>
-        </CardContent>
-      </Card>
+        {/* AI Insights */}
+        <InsightsPanel />
+      </div>
 
-      {/* Quick Insights */}
-      <Card className="bg-white/10 backdrop-blur-none border-white/20 shadow-lg">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-medium text-white flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2" />
-            Financial Insights
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {insights.map((insight) => (
-            <div key={insight.id} className="flex items-start space-x-2 text-sm">
-              <AlertCircle className="w-4 h-4 text-blue-300 mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="font-medium text-white">{insight.title}</div>
-                <div className="text-white/80">{insight.description}</div>
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      {/* ── Row 2: Chart — rendered ONCE here, never in OverviewTab ── */}
+      {/* {barChartData && barChartData.length > 0 && (
+        <IncomeExpenseChart barChartData={barChartData} />
+      )} */}
     </div>
   )
 }

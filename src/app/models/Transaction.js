@@ -13,6 +13,10 @@ const transactionSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  merchant: {
+    type: String,
+    required: false,
+  },
   description: {
     type: String,
     required: true,
@@ -31,6 +35,20 @@ const transactionSchema = new mongoose.Schema({
     ref: "Category",
     required: true,
   },
+  hash: {
+    type: String,
+    required: false, // Optional for backward compatibility
+    unique: true,
+    sparse: true // Allows multiple null/missing hashes
+  },
+  is_recurring: {
+    type: Boolean,
+    default: false
+  },
+  confidence_score: {
+    type: Number,
+    required: false
+  }
 })
 
 transactionSchema.index({ userId: 1 }) // Index on userId for performance

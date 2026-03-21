@@ -9,16 +9,33 @@ export async function GET(request) {
   await dbConnect();
 
   const userId = request.nextUrl.searchParams.get('userId');
+  const page = parseInt(request.nextUrl.searchParams.get('page')) || 1;
+  const limit = parseInt(request.nextUrl.searchParams.get('limit')) || 0;
+
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const transactions = await Transaction.find({ userId })
-      .sort({ createdAt: -1 })
-      .populate('categoryId'); // populate Category reference
+    const skip = (page - 1) * limit;
+    const query = Transaction.find({ userId }).sort({ createdAt: -1 }).populate('categoryId');
+    
+    if (limit > 0) {
+      query.skip(skip).limit(limit);
+    }
+    
+    const transactions = await query;
 
-    return NextResponse.json(transactions);
+    // Backward compatibility: If no limit is requested, return flat array to avoid breaking the UI right away
+    if (limit === 0) {
+      return NextResponse.json(transactions);
+    }
+
+    const totalCount = await Transaction.countDocuments({ userId });
+    return NextResponse.json({
+      transactions,
+      meta: { total: totalCount, page, limit, totalPages: Math.ceil(totalCount / limit) }
+    });
   } catch (error) {
     console.error('Error fetching transactions:', error);
     return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });

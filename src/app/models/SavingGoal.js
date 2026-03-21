@@ -1,36 +1,24 @@
-const mongoose = require('mongoose');
+// app/models/SavingGoal.js
+import mongoose from "mongoose"
 
-const savingGoalSchema = mongoose.Schema({
-    name: {
-        type: String, 
-        required: true, 
-    }, 
-    targetAmount: {
-        type: Number, 
-        required: true, 
-    }, 
-    currentAmount: {
-        type: Number, 
-        required: true, 
-    }, 
-    deadline: {
-        type: Date,
-        required: false,
-    },
-    userId: {
-        type: String,
-        required: true,
-    },
-    disabled:{
-        type:Boolean, 
-        required:true
-    }, 
-    createdAt: {
-        type: Date,
-        default: Date.now,
-    },
-});
+const AllocationSchema = new mongoose.Schema({
+    amount: { type: Number, required: true },
+    direction: { type: String, enum: ["add", "withdraw"], default: "add" },
+    note: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
+}, { _id: false })
 
-savingGoalSchema.index({ userId: 1 }); // Index for faster queries by userId
+const SavingGoalSchema = new mongoose.Schema({
+    userId: { type: String, required: true, index: true },
+    name: { type: String, required: true },
+    targetAmount: { type: Number, required: true },
+    currentAmount: { type: Number, default: 0 },
+    deadline: { type: Date, default: null },
+    disabled: { type: Boolean, default: false },
+    status: { type: String, default: "active" },
+    // ✅ Tracks every add/withdraw — history of fund movements
+    allocations: { type: [AllocationSchema], default: [] },
+}, { timestamps: true })
 
-module.exports = mongoose.models.SavingGoal || mongoose.model('SavingGoal', savingGoalSchema);
+export default mongoose.models.SavingGoal ||
+    mongoose.model("SavingGoal", SavingGoalSchema)
