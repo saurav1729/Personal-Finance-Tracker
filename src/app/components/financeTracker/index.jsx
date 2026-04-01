@@ -469,11 +469,17 @@ export default function FinanceTracker() {
   const [newBudget, setNewBudget] = useState({ category: "", amount: "", period: "month" })
   const [newGoal, setNewGoal] = useState({ name: "", targetAmount: "", currentAmount: 0, deadline: "" })
 
+  const [chatMessages, setChatMessages] = useState([{
+    role: "assistant",
+    content: "I'm **MoneyMap Intelligence** — your multi-agent financial analyst.\n\nI can:\n- Log transactions and update your budgets automatically\n- Calculate safe-to-spend limits and burn rate\n- Detect spending anomalies\n- Analyse your budget health\n- Track savings goal progress\n- Search your full transaction history\n\nWhat would you like to know?",
+    timestamp: Date.now(),
+  }])
+
   // ── Fetch functions ───────────────────────────────────────────────────────
   const fetchTransactions = useCallback(async () => {
     if (!user?.id) return
     try {
-      const res = await fetch(`/api/transactions?userId=${user.id}`)
+      const res = await fetch(`/api/transactions?userId=${user.id}`, { cache: 'no-store' })
       if (!res.ok) throw new Error()
       const data = await res.json()
       setTransactions(Array.isArray(data) ? data : data.transactions || [])
@@ -483,7 +489,7 @@ export default function FinanceTracker() {
   const fetchCategories = useCallback(async () => {
     if (!user?.id) return
     try {
-      const res = await fetch(`/api/categories?userId=${user.id}`)
+      const res = await fetch(`/api/categories?userId=${user.id}`, { cache: 'no-store' })
       if (!res.ok) throw new Error()
       setCategories(await res.json())
     } catch { setCategories(mockCategories) }
@@ -492,7 +498,7 @@ export default function FinanceTracker() {
   const fetchBudgets = useCallback(async () => {
     if (!user?.id) return
     try {
-      const res = await fetch(`/api/budget?userId=${user.id}`)
+      const res = await fetch(`/api/budget?userId=${user.id}`, { cache: 'no-store' })
       const data = await res.json()
       setBudgets(Array.isArray(data) ? data : [])
     } catch { setBudgets(mockBudgets) }
@@ -502,7 +508,7 @@ export default function FinanceTracker() {
   const fetchGoals = useCallback(async () => {
     if (!user?.id) return
     try {
-      const res = await fetch(`/api/goals?userId=${user.id}`)
+      const res = await fetch(`/api/goals?userId=${user.id}`, { cache: 'no-store' })
       const data = await res.json()
       setSavingsGoals(Array.isArray(data) ? data : [])
     } catch { setSavingsGoals(mockSavingsGoals) }
@@ -714,7 +720,11 @@ export default function FinanceTracker() {
             </TabsContent>
 
             <TabsContent value="intelligence" className="space-y-6 mt-0">
-              <IntelligenceHub onDataChange={handleDataChange} />
+              <IntelligenceHub 
+                onDataChange={handleDataChange} 
+                chatMessages={chatMessages} 
+                setChatMessages={setChatMessages} 
+              />
             </TabsContent>
 
           </div>

@@ -33,7 +33,7 @@ export default function TabNavigation({ activeTab, setActiveTab }) {
             <SidebarButton value="overview" icon={<BarChart3 className="w-[18px] h-[18px]"/>} label="Dashboard" active={activeTab} />
             <SidebarButton value="ledger" icon={<IndianRupee className="w-[18px] h-[18px]"/>} label="Transactions" active={activeTab} />
             <SidebarButton value="planning" icon={<Target className="w-[18px] h-[18px]"/>} label="Financial Plan" active={activeTab} />
-            <SidebarButton value="intelligence" icon={<Sparkles className="w-[18px] h-[18px]"/>} label="Intelligence Agent" active={activeTab} />
+            {/* <SidebarButton value="intelligence" icon={<Sparkles className="w-[18px] h-[18px]"/>} label="Intelligence Agent" active={activeTab} /> */}
           </TabsList>
         </div>
         

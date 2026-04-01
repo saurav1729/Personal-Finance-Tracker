@@ -139,7 +139,7 @@ Return exactly ONE of: Financial_Analyst, Ledger_Manager, Goal_Specialist, Budge
 
   // ── Agent Factory ───────────────────────────────────────────────────────────
   const createAgent = (systemPrompt, tools) => {
-    const boundLLM = LLM.bindTools(tools);
+    const boundLLM = tools.length > 0 ? LLM.bindTools(tools) : LLM;
     const validToolNames = tools.map(t => t.name);
     return async (state) => {
       const sysContent = state.messages
@@ -160,7 +160,7 @@ Return exactly ONE of: Financial_Analyst, Ledger_Manager, Goal_Specialist, Budge
   const LEDGER_PROMPT = `You are the Ledger Manager. You log transactions and search history.
 
 TRANSACTION TYPE RULES:
-- EXPENSE (money OUT): food, milk, doodh, groceries, cab, transport, biryani, chowmin, subscription, rent, entertainment, petrol, bills, shopping, medicine
+- EXPENSE (money OUT): food, milk, doodh, groceries, cab, transport, biryani, chowmin, subscription, rent, entertainment, petrol, bills, shopping, medicine, giving money, sending money, paid friend, paid person
 - INCOME (money IN): salary, freelance payment, received from person, refund, cashback
 
 STEPS:

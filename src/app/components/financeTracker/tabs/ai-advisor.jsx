@@ -131,9 +131,13 @@ function MessageBubble({ msg }) {
       <div className={`flex max-w-[85%] md:max-w-[78%] ${isUser ? "flex-row-reverse" : "flex-row"} gap-3`}>
         {!isUser && (
           <div className="shrink-0 mt-0.5">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${isError ? "bg-red-500/10 border-red-500/20" : "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/20"
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${isError
+                ? "bg-red-500/10 border-red-500/20"
+                : "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/20"
               }`}>
-              {isError ? <WifiOff className="w-4 h-4 text-red-400" /> : <Bot className="w-4 h-4 text-indigo-400" />}
+              {isError
+                ? <WifiOff className="w-4 h-4 text-red-400" />
+                : <Bot className="w-4 h-4 text-indigo-400" />}
             </div>
           </div>
         )}
@@ -150,7 +154,9 @@ function MessageBubble({ msg }) {
                 </div>
               )}
               <div className={`text-[14px] leading-relaxed space-y-1 ${isError ? "text-red-400/80" : ""}`}>
-                {isError ? <p className="text-[14px] leading-relaxed">{msg.content}</p> : renderContent(msg.content)}
+                {isError
+                  ? <p className="text-[14px] leading-relaxed">{msg.content}</p>
+                  : renderContent(msg.content)}
               </div>
             </div>
           )}
@@ -165,14 +171,36 @@ function MessageBubble({ msg }) {
   );
 }
 
+// ─── SSE parser — robust line-by-line state machine ───────────────────────────
+// Keeps a buffer across chunks; never splits mid-event.
+function createSSEParser(onEvent) {
+  let buf = "";
+  return function push(rawChunk) {
+    buf += rawChunk;
+    // SSE events are separated by a blank line (\n\n)
+    let boundary;
+    while ((boundary = buf.indexOf("\n\n")) !== -1) {
+      const block = buf.slice(0, boundary);
+      buf = buf.slice(boundary + 2);
+      // A block can have multiple lines; find "data: ..." lines
+      for (const line of block.split("\n")) {
+        if (line.startsWith("data: ")) {
+          const raw = line.slice(6).trim();
+          if (!raw || raw === "[DONE]") continue;
+          try {
+            onEvent(JSON.parse(raw));
+          } catch {
+            // silently skip malformed JSON
+          }
+        }
+      }
+    }
+  };
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function AiAdvisorTab({ onDataChange }) {
+export default function AiAdvisorTab({ onDataChange, chatMessages: messages, setChatMessages: setMessages }) {
   const { user } = useUser();
-  const [messages, setMessages] = useState([{
-    role: "assistant",
-    content: "I'm **MoneyMap Intelligence** — your multi-agent financial analyst.\n\nI can:\n- Log transactions and update your budgets automatically\n- Calculate safe-to-spend limits and burn rate\n- Detect spending anomalies\n- Analyse your budget health\n- Track savings goal progress\n- Search your full transaction history\n\nWhat would you like to know?",
-    timestamp: Date.now(),
-  }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState(null);
@@ -182,6 +210,8 @@ export default function AiAdvisorTab({ onDataChange }) {
   const scrollContainerRef = useRef(null);
   const inputRef = useRef(null);
   const agentTimerRef = useRef(null);
+  // Ref that mirrors the live AI message being built — avoids stale closure issues
+  const liveAiMsgRef = useRef(null);
 
   const scrollToBottom = useCallback((smooth = true) => {
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant" });
@@ -197,22 +227,47 @@ export default function AiAdvisorTab({ onDataChange }) {
     return () => el.removeEventListener("scroll", fn);
   }, []);
 
+  // Load chat history once on mount
   useEffect(() => {
-    if (!user) return;
+    if (!user || messages.length > 1) return;
     fetch(`/api/chat/history?userId=${user.id}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.success && data.messages?.length > 0) {
           const msgs = data.messages
             .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((m) => ({ role: m.role, content: m.content, timestamp: m.createdAt ? new Date(m.createdAt).getTime() : Date.now() }));
-          if (msgs.length > 0) { setMessages(msgs); setTimeout(() => scrollToBottom(false), 100); }
+            .map((m) => ({
+              role: m.role,
+              content: m.content,
+              timestamp: m.createdAt ? new Date(m.createdAt).getTime() : Date.now(),
+            }));
+          if (msgs.length > 0) {
+            setMessages(msgs);
+            setTimeout(() => scrollToBottom(false), 100);
+          }
         }
       })
       .catch((err) => console.warn("Chat history:", err));
   }, [user]);
 
   useEffect(() => () => clearInterval(agentTimerRef.current), []);
+
+  // ── Flush the live ref into React state (batched, ~60 fps) ─────────────────
+  // Instead of calling setMessages on every single token, we use rAF-based
+  // batching so React only re-renders at display rate, keeping the UI smooth.
+  const flushRafRef = useRef(null);
+  const scheduleFlush = useCallback(() => {
+    if (flushRafRef.current) return;
+    flushRafRef.current = requestAnimationFrame(() => {
+      flushRafRef.current = null;
+      if (!liveAiMsgRef.current) return;
+      setMessages((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = { ...liveAiMsgRef.current };
+        return next;
+      });
+    });
+  }, [setMessages]);
 
   const handleSend = async (messageText) => {
     const text = (messageText || input).trim();
@@ -223,9 +278,18 @@ export default function AiAdvisorTab({ onDataChange }) {
     setIsLoading(true);
     setActiveAgent("supervisor");
 
+    // Rotating agent indicator while waiting for first token
     const seq = ["supervisor", "Financial_Analyst", "Ledger_Manager", "Budget_Advisor", "Goal_Specialist"];
     let idx = 0;
-    agentTimerRef.current = setInterval(() => { idx = (idx + 1) % seq.length; setActiveAgent(seq[idx]); }, 2200);
+    agentTimerRef.current = setInterval(() => {
+      idx = (idx + 1) % seq.length;
+      setActiveAgent(seq[idx]);
+    }, 2200);
+
+    // Initialise the placeholder AI message
+    const initialAiMsg = { role: "assistant", content: "", tools: [], timestamp: Date.now(), isError: false };
+    liveAiMsgRef.current = initialAiMsg;
+    setMessages((p) => [...p, { ...initialAiMsg }]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -234,49 +298,117 @@ export default function AiAdvisorTab({ onDataChange }) {
         body: JSON.stringify({ userId: user.id, message: text }),
       });
 
-      const data = await res.json();
       clearInterval(agentTimerRef.current);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
 
-      setMessages((p) => [...p, {
-        role: "assistant",
-        content: data.message,
-        tools: data.tools || [],
-        timestamp: Date.now(),
-        isError: /^[⚠️⏱️]/.test(data.message),
-      }]);
+      // Robust SSE parser — handles chunks that split across event boundaries
+      const parse = createSSEParser((data) => {
+        const msg = liveAiMsgRef.current;
+        if (!msg) return;
 
-      if (onDataChange && data.tools?.length > 0) onDataChange();
+        if (data.type === "chunk") {
+          msg.content += data.content;
+          scheduleFlush();
 
-      data.tools?.forEach((toolName, i) => {
-        const meta = TOOL_META[toolName];
-        if (!meta) return;
-        setTimeout(() => {
-          toast.custom(() => (
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium"
-              style={{ background: "rgba(18,18,28,0.95)", border: `1px solid ${meta.border}`, color: meta.color, backdropFilter: "blur(12px)" }}>
-              <meta.icon className="w-4 h-4 shrink-0" />
-              <span>{meta.label}</span>
-            </div>
-          ));
-        }, i * 300);
+        } else if (data.type === "tool_start") {
+          if (!msg.tools.includes(data.tool)) {
+            msg.tools = [...msg.tools, data.tool];
+            const meta = TOOL_META[data.tool];
+            if (meta) {
+              toast.custom(() => (
+                <div
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium"
+                  style={{
+                    background: "rgba(18,18,28,0.95)",
+                    border: `1px solid ${meta.border}`,
+                    color: meta.color,
+                    backdropFilter: "blur(12px)",
+                  }}
+                >
+                  <meta.icon className="w-4 h-4 shrink-0" />
+                  <span>{meta.label}</span>
+                </div>
+              ));
+            }
+            scheduleFlush();
+          }
+
+        } else if (data.type === "tool_end") {
+          if (onDataChange) onDataChange();
+
+        } else if (data.type === "routing") {
+          if (data.agent) setActiveAgent(data.agent);
+
+        } else if (data.type === "error") {
+          msg.isError = true;
+          msg.content += `\n⚠️ ${data.message}`;
+          scheduleFlush();
+
+        } else if (data.type === "done") {
+          // Final flush — ensure last state is committed
+          scheduleFlush();
+        }
       });
 
-      if (/rate.limit|rate-limit|⏱️/i.test(data.message)) {
+      let done = false;
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        if (value) {
+          parse(decoder.decode(value, { stream: true }));
+        }
+      }
+
+      // Drain any trailing bytes the decoder buffered
+      parse(decoder.decode());
+
+      // Ensure the very last state is in React
+      if (liveAiMsgRef.current) {
+        setMessages((prev) => {
+          const next = [...prev];
+          next[next.length - 1] = { ...liveAiMsgRef.current };
+          return next;
+        });
+      }
+
+      // Rate-limit toast
+      if (/rate\.limit|rate-limit|⏱️/i.test(liveAiMsgRef.current?.content ?? "")) {
         toast.custom(() => (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium"
-            style={{ background: "rgba(18,18,28,0.95)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b", backdropFilter: "blur(12px)" }}>
+          <div
+            className="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-sm font-medium"
+            style={{
+              background: "rgba(18,18,28,0.95)",
+              border: "1px solid rgba(245,158,11,0.3)",
+              color: "#f59e0b",
+              backdropFilter: "blur(12px)",
+            }}
+          >
             <Clock className="w-4 h-4 shrink-0" />
             <span>Rate limited — wait 20–30s before retrying</span>
           </div>
         ));
       }
+
     } catch (err) {
       clearInterval(agentTimerRef.current);
-      setMessages((p) => [...p, { role: "assistant", content: `Network error: ${err.message}. Please check your connection.`, timestamp: Date.now(), isError: true }]);
+      const errorMsg = {
+        role: "assistant",
+        content: `Network error: ${err.message}. Please check your connection.`,
+        timestamp: Date.now(),
+        isError: true,
+      };
+      // Replace the placeholder with the error message
+      setMessages((prev) => {
+        const next = [...prev];
+        next[next.length - 1] = errorMsg;
+        return next;
+      });
       toast.error(`Request failed: ${err.message}`);
     } finally {
+      liveAiMsgRef.current = null;
       setIsLoading(false);
       setActiveAgent(null);
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -293,8 +425,11 @@ export default function AiAdvisorTab({ onDataChange }) {
       `}</style>
 
       {/* Messages */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6"
-        style={{ scrollbarWidth: "thin", scrollbarColor: "#27272a transparent" }}>
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6"
+        style={{ scrollbarWidth: "thin", scrollbarColor: "#27272a transparent" }}
+      >
         {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
         {isLoading && <ThinkingIndicator agentName={activeAgent} />}
 
@@ -303,8 +438,11 @@ export default function AiAdvisorTab({ onDataChange }) {
             <p className="text-[11px] text-zinc-600 uppercase tracking-widest mb-3 px-1">Quick Actions</p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {QUICK_PROMPTS.map(({ icon: Icon, label, prompt }) => (
-                <button key={label} onClick={() => handleSend(prompt)}
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.07] text-zinc-400 text-[13px] hover:bg-white/[0.06] hover:text-zinc-200 hover:border-white/[0.12] transition-all duration-200 text-left">
+                <button
+                  key={label}
+                  onClick={() => handleSend(prompt)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.07] text-zinc-400 text-[13px] hover:bg-white/[0.06] hover:text-zinc-200 hover:border-white/[0.12] transition-all duration-200 text-left"
+                >
                   <Icon className="w-3.5 h-3.5 shrink-0 text-zinc-500" />{label}
                 </button>
               ))}
@@ -316,8 +454,10 @@ export default function AiAdvisorTab({ onDataChange }) {
 
       {showScrollDown && (
         <div className="absolute bottom-24 right-8 z-20">
-          <button onClick={() => scrollToBottom()}
-            className="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors shadow-lg">
+          <button
+            onClick={() => scrollToBottom()}
+            className="w-8 h-8 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-zinc-200 transition-colors shadow-lg"
+          >
             <ChevronDown className="w-4 h-4" />
           </button>
         </div>
@@ -326,17 +466,31 @@ export default function AiAdvisorTab({ onDataChange }) {
       {/* Input */}
       <div className="px-4 md:px-6 pb-5 pt-2 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-transparent">
         <div className="relative flex items-end">
-          <textarea ref={inputRef} value={input}
-            onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"; }}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+            }}
             placeholder="Ask anything about your finances…"
-            rows={1} disabled={isLoading}
+            rows={1}
+            disabled={isLoading}
             className="w-full bg-[#18181b] border border-white/10 rounded-xl py-3 pl-4 pr-12 text-zinc-200 text-[14px] placeholder:text-zinc-600 outline-none focus:border-zinc-500/60 transition-all shadow-sm resize-none overflow-hidden leading-relaxed disabled:opacity-60"
             style={{ minHeight: "46px", maxHeight: "120px" }}
           />
-          <button onClick={() => handleSend()} disabled={!input.trim() || isLoading}
-            className="absolute right-2.5 bottom-2.5 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:bg-white/5">
-            {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <SendHorizontal className="w-4 h-4" />}
+          <button
+            onClick={() => handleSend()}
+            disabled={!input.trim() || isLoading}
+            className="absolute right-2.5 bottom-2.5 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:bg-white/5"
+          >
+            {isLoading
+              ? <RefreshCw className="w-4 h-4 animate-spin" />
+              : <SendHorizontal className="w-4 h-4" />}
           </button>
         </div>
 
@@ -344,12 +498,15 @@ export default function AiAdvisorTab({ onDataChange }) {
         <div className="flex items-center justify-between mt-2 px-1">
           <div className="flex items-center gap-1">
             {Object.entries(AGENT_LABELS).slice(0, 4).map(([key, { label, color }]) => (
-              <span key={key} className="text-[10px] px-2 py-0.5 rounded-full border transition-all duration-500"
+              <span
+                key={key}
+                className="text-[10px] px-2 py-0.5 rounded-full border transition-all duration-500"
                 style={{
                   color: activeAgent === key ? color : "#52525b",
                   borderColor: activeAgent === key ? color : "transparent",
                   background: activeAgent === key ? `${color}18` : "transparent",
-                }}>
+                }}
+              >
                 {label}
               </span>
             ))}

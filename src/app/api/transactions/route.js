@@ -5,6 +5,8 @@ import Transaction from '@/app/models/Transaction';
 import Category from '@/app/models/Category';
 import Budget from '@/app/models/Budget';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   await dbConnect();
 

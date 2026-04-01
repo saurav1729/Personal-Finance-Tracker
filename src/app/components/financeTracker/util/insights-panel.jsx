@@ -395,7 +395,7 @@ export default function InsightsPanel() {
           <p style={{ fontSize: "9.5px", color: "rgba(113,113,122,0.5)", letterSpacing: "0.04em" }}>
             {all.length} insight{all.length !== 1 ? "s" : ""} · refreshes every 5m
           </p>
-          <button
+          {/* <button
             onClick={() => window.dispatchEvent(new CustomEvent("openIntelligence"))}
             className="flex items-center gap-1 transition-all"
             style={{ fontSize: "9.5px", color: "rgba(167,139,250,0.7)", fontWeight: 600 }}
@@ -403,7 +403,7 @@ export default function InsightsPanel() {
             onMouseLeave={e => e.currentTarget.style.color = "rgba(167,139,250,0.7)"}>
             Ask agent
             <ArrowRight style={{ width: 9, height: 9 }} />
-          </button>
+          </button> */}
         </div>
       )}
     </div>

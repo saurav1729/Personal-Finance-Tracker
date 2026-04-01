@@ -1,7 +1,7 @@
 import AiAdvisorTab from "./ai-advisor"
 import { Sparkles } from "lucide-react"
 
-export default function IntelligenceHub({ onDataChange }) {
+export default function IntelligenceHub({ onDataChange, chatMessages, setChatMessages }) {
   return (
     <div className="flex-1 w-full max-w-5xl mx-auto h-[calc(100vh-140px)] min-h-[600px]">
       {/* LangGraph Chat */}
@@ -19,7 +19,7 @@ export default function IntelligenceHub({ onDataChange }) {
             </div>
           </div>
           <div className="p-0 flex-1 flex flex-col overflow-hidden relative z-10">
-            <AiAdvisorTab onDataChange={onDataChange} />
+            <AiAdvisorTab onDataChange={onDataChange} chatMessages={chatMessages} setChatMessages={setChatMessages} />
           </div>
         </div>
       </div>

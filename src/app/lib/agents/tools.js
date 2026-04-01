@@ -12,8 +12,9 @@ import SavingsGoal from "@/app/models/SavingGoal";
 import Category from "@/app/models/Category";
 
 // ─── Tool 1: Safe-to-Spend ─────────────────────────────────────────────────────
-export const build_getSafeToSpendTool = (userId) => tool(
-  async () => {
+export const build_getSafeToSpendTool = (closureUserId) => tool(
+  async (args) => {
+    const userId = args?.userId || closureUserId;
     try {
       await dbConnect();
       const now = new Date();
@@ -55,13 +56,14 @@ export const build_getSafeToSpendTool = (userId) => tool(
   {
     name: "get_safe_to_spend",
     description: "Gets balance, safe-to-spend limit, burn rate, and health score for this month. Use for: balance, income, 'how much left', daily limit, health score.",
-    schema: z.object({}), // userId baked in via closure
+    schema: z.object({ userId: z.string().describe("User ID") }),
   }
 );
 
 // ─── Tool 2: Anomalies ─────────────────────────────────────────────────────────
-export const build_getAnomaliesTool = (userId) => tool(
-  async () => {
+export const build_getAnomaliesTool = (closureUserId) => tool(
+  async (args) => {
+    const userId = args?.userId || closureUserId;
     try {
       await dbConnect();
       const thirtyDaysAgo = new Date();
@@ -99,13 +101,15 @@ export const build_getAnomaliesTool = (userId) => tool(
   {
     name: "get_recent_anomalies",
     description: "Detects unusual spending spikes (1.8x+ category average) in last 30 days. Use for: anomalies, unusual spending, money leaks.",
-    schema: z.object({}),
+    schema: z.object({ userId: z.string().describe("User ID") }),
   }
 );
 
 // ─── Tool 3: Spending Summary ──────────────────────────────────────────────────
-export const build_getSpendingSummaryTool = (userId) => tool(
-  async ({ period }) => {   // ✅ period correctly destructured from args
+export const build_getSpendingSummaryTool = (closureUserId) => tool(
+  async (args) => {
+    const { period, userId: argsUserId } = args || {};
+    const userId = argsUserId || closureUserId;
     try {
       await dbConnect();
       const now = new Date();
@@ -147,14 +151,16 @@ export const build_getSpendingSummaryTool = (userId) => tool(
     name: "get_spending_summary",
     description: "Spending breakdown by category with percentages. Use for: spending breakdown, where money went, top categories, which category most, spending more.",
     schema: z.object({
+      userId: z.string().describe("User ID"),
       period: z.enum(["week", "month", "30days"]).describe("Time period for summary"),
     }),
   }
 );
 
 // ─── Tool 4: Burn Rate ─────────────────────────────────────────────────────────
-export const build_getBurnRateTool = (userId) => tool(
-  async () => {
+export const build_getBurnRateTool = (closureUserId) => tool(
+  async (args) => {
+    const userId = args?.userId || closureUserId;
     try {
       await dbConnect();
       const now = new Date();
@@ -176,13 +182,15 @@ export const build_getBurnRateTool = (userId) => tool(
   {
     name: "get_burn_rate",
     description: "Daily spending rate and projected month-end spend. Use for: burn rate, spending pace.",
-    schema: z.object({}),
+    schema: z.object({ userId: z.string().describe("User ID") }),
   }
 );
 
 // ─── Tool 5: Add Transaction ───────────────────────────────────────────────────
-export const build_addTransactionTool = (userId) => tool(
-  async ({ amount, merchant, description, category, type }) => { // ✅ all params correctly destructured
+export const build_addTransactionTool = (closureUserId) => tool(
+  async (args) => {
+    const { amount, merchant, description, category, type, userId: argsUserId } = args || {};
+    const userId = argsUserId || closureUserId;
     try {
       await dbConnect();
 
@@ -234,6 +242,7 @@ export const build_addTransactionTool = (userId) => tool(
     name: "add_transaction",
     description: "Logs income or expense and updates budget. Only use 'income' for salary/received money; use 'expense' for all purchases/spending.",
     schema: z.object({
+      userId: z.string().describe("User ID"),
       amount: z.number().describe("Transaction amount in rupees"),
       merchant: z.string().describe("Store, person, or item name"),
       description: z.string().describe("Brief description"),
@@ -244,8 +253,10 @@ export const build_addTransactionTool = (userId) => tool(
 );
 
 // ─── Tool 6: Add Savings Goal ──────────────────────────────────────────────────
-export const build_addSavingsGoalTool = (userId) => tool(
-  async ({ name, targetAmount, deadline, currentAmount }) => {
+export const build_addSavingsGoalTool = (closureUserId) => tool(
+  async (args) => {
+    const { name, targetAmount, deadline, currentAmount, userId: argsUserId } = args || {};
+    const userId = argsUserId || closureUserId;
     try {
       await dbConnect();
       const existing = await SavingsGoal.findOne({ userId, name: name.trim() });
@@ -277,6 +288,7 @@ export const build_addSavingsGoalTool = (userId) => tool(
     name: "add_savings_goal",
     description: "Creates a new savings goal. Use for: 'save for X', 'create a goal', 'I want to save ₹X for Y'.",
     schema: z.object({
+      userId: z.string().describe("User ID"),
       name: z.string().describe("Goal name e.g. 'Flight Ticket', 'Emergency Fund'"),
       targetAmount: z.number().describe("Target amount in rupees"),
       deadline: z.string().describe("Deadline in YYYY-MM-DD format"),
@@ -286,8 +298,10 @@ export const build_addSavingsGoalTool = (userId) => tool(
 );
 
 // ─── Tool 7: Update Goal Amount ────────────────────────────────────────────────
-export const build_updateGoalAmountTool = (userId) => tool(
-  async ({ goalName, amountToAdd, setAmount }) => { // ✅ correct param names
+export const build_updateGoalAmountTool = (closureUserId) => tool(
+  async (args) => {
+    const { goalName, amountToAdd, setAmount, userId: argsUserId } = args || {};
+    const userId = argsUserId || closureUserId;
     try {
       await dbConnect();
       const goals = await SavingsGoal.find({ userId, disabled: { $ne: true } });
@@ -336,6 +350,7 @@ export const build_updateGoalAmountTool = (userId) => tool(
     name: "update_goal_amount",
     description: "Adds money to or sets amount of an existing savings goal. Use for: 'add money to goal', 'put ₹X in goal', 'I saved X towards goal'.",
     schema: z.object({
+      userId: z.string().describe("User ID"),
       goalName: z.string().describe("Goal name or partial match"),
       amountToAdd: z.number().optional().describe("Amount to add to current savings"),
       setAmount: z.number().optional().describe("Set current savings to this exact value"),
@@ -344,8 +359,9 @@ export const build_updateGoalAmountTool = (userId) => tool(
 );
 
 // ─── Tool 8: Get Goals ─────────────────────────────────────────────────────────
-export const build_getGoalsTool = (userId) => tool(
-  async () => {
+export const build_getGoalsTool = (closureUserId) => tool(
+  async (args) => {
+    const userId = args?.userId || closureUserId;
     try {
       await dbConnect();
       const goals = await SavingsGoal.find({ userId, disabled: { $ne: true } }).sort({ createdAt: -1 });
@@ -371,13 +387,14 @@ export const build_getGoalsTool = (userId) => tool(
   {
     name: "get_goals",
     description: "Fetches all active savings goals with progress. Use for: show goals, goal progress.",
-    schema: z.object({}),
+    schema: z.object({ userId: z.string().describe("User ID") }),
   }
 );
 
 // ─── Tool 9: Budget Status ─────────────────────────────────────────────────────
-export const build_getBudgetStatusTool = (userId) => tool(
-  async () => {
+export const build_getBudgetStatusTool = (closureUserId) => tool(
+  async (args) => {
+    const userId = args?.userId || closureUserId;
     try {
       await dbConnect();
       const budgets = await Budget.find({ userId, status: "enabled" });
@@ -404,6 +421,6 @@ export const build_getBudgetStatusTool = (userId) => tool(
   {
     name: "get_budget_status",
     description: "Budget health overview — exceeded, at-risk, or healthy categories. Use for: budget status, over budget.",
-    schema: z.object({}),
+    schema: z.object({ userId: z.string().describe("User ID") }),
   }
 );

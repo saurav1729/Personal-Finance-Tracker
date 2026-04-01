@@ -5,6 +5,8 @@ import Category from '@/app/models/Category';
 
 // Mongoose model for Category
 
+export const dynamic = 'force-dynamic';
+
 // GET request to fetch categories for a specific user
 export async function GET(request) {
   try {
